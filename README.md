@@ -93,16 +93,22 @@ The current implementation applies branch adjustments to `theta` and `phi`, then
 The Pb and I atoms are interpolated in fractional coordinates using corresponding site indices and component-wise periodic displacement wrapping:
 
 $$
-\Delta\mathbf{f}=\mathbf{f}_1-\mathbf{f}_0-\operatorname{round}(\mathbf{f}_1-\mathbf{f}_0),
-\qquad
+\Delta\mathbf{f}=\mathbf{f}_1-\mathbf{f}_0-\mathrm{round}(\mathbf{f}_1-\mathbf{f}_0).
+$$
+
+$$
 \mathbf{f}(s)=\mathbf{f}_0+s\Delta\mathbf{f}.
 $$
+
+Here, $\mathbf{f}_0$ and $\mathbf{f}_1$ are the endpoint fractional coordinates. The function `round` selects the nearest integer separately for each component, following NumPy's rounding convention; subtracting it wraps each fractional displacement into the interval from -0.5 to 0.5.
 
 The lattice is interpolated using the stretch part of a polar decomposition. If $A_0$ and $A_1$ contain the lattice vectors as rows, the code forms
 
 $$
-F=A_1^\mathsf{T}(A_0^\mathsf{T})^{-1}=UP,
-\qquad
+F=A_1^\mathsf{T}(A_0^\mathsf{T})^{-1}=UP.
+$$
+
+$$
 A(s)^\mathsf{T}=[I+s(P-I)]A_0^\mathsf{T}.
 $$
 
