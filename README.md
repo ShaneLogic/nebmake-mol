@@ -13,6 +13,7 @@ The current implementation is configured for methylammonium lead iodide, CH3NH3P
 - [Quick start](#quick-start)
 - [Input requirements](#input-requirements)
 - [Output files](#output-files)
+- [Verification](#verification)
 - [Limitations and troubleshooting](#limitations-and-troubleshooting)
 - [Code map](#code-map)
 
@@ -128,7 +129,7 @@ conda activate nebmake-mol
 python -m pip install numpy==2.3.4 pandas==2.2.3 scipy==1.16.3 pymatgen==2025.10.7
 ```
 
-The smoke test used Python 3.13.5 and produced six readable 12-atom structures. It checks the command and file workflow, not the physical quality of an NEB path or compatibility with every input system.
+That earlier smoke test used Python 3.13.5 and produced six readable 12-atom structures. It checks the command and file workflow, not the physical quality of an NEB path or compatibility with every input system. A fresh source-review check is described under [Verification](#verification).
 
 The original README records pymatgen `2023.8.10`. The repository also includes `requirements-pip.txt` and `requirements-conda.txt` as historical environment records; review their version and platform constraints before using them to reconstruct that environment.
 
@@ -245,6 +246,10 @@ Directory names are constructed by prefixing the integer index with `0`: index 9
 
 ## Limitations and troubleshooting
 
+The command reads its positional arguments and endpoint data while importing `config.py`. It does not have an `argparse` help/validation layer: running `interp_main.py --help` or omitting arguments is not a supported discovery command. Use the four positional arguments shown above.
+
+The printed `dQ` value comes from `get_Q`: it is a mass-weighted atomic displacement diagnostic between the endpoints, not a path energy or activation barrier.
+
 | Symptom or concern | What to check |
 | --- | --- |
 | Input file cannot be found | Relative input paths start at the parent of the source checkout, not necessarily the current working directory. Follow the quick-start layout or use absolute paths. |
@@ -257,6 +262,29 @@ Directory names are constructed by prefixing the integer index with `0`: index 9
 | Molecules overlap or approach the framework too closely | Geometry interpolation has no energy or force evaluation and no collision-avoidance optimization. Inspect the path before NEB relaxation. |
 
 Periodic wrapping is component-wise in fractional coordinates, including in the molecular neighbor search. It is not a general closest-image search for strongly skewed cells. Large displacements, skewed cells, symmetry-related atom permutations, and large rotations require particular care.
+
+## Verification
+
+The 2026-10-01 review followed the complete command pipeline, including periodic adjustment, molecular extraction, angle reconstruction, framework/lattice interpolation, POSCAR assembly, and the final coordinate shift. A new synthetic 12-atom fixed-cell rotation produced six finite, readable structures with the expected cell and species counts. The largest change in an intramolecular pair distance relative to the first generated image was approximately **2.1e-4 angstrom**, consistent with the implementation's finite-precision transformations for that fixture. This is a workflow check, not a general error bound or an NEB convergence result.
+
+After running your own example, this read-only check validates the numbered outputs from the run directory:
+
+```python
+import numpy as np
+from pymatgen.core import Structure
+
+n_images = 6  # Total structures, including endpoints
+images = [Structure.from_file(f"0{i}/POSCAR") for i in range(n_images)]
+reference_species = [str(site.specie) for site in images[0]]
+for image in images:
+    assert [str(site.specie) for site in image] == reference_species
+    assert np.isfinite(image.cart_coords).all()
+    assert np.isfinite(image.lattice.matrix).all()
+    assert image.volume > 0
+print(f"Read {len(images)} structures with {len(images[0])} atoms each")
+```
+
+Passing these checks does not detect all short contacts, wrong molecular membership, or undesired rotational branches. Complete the physical inspection in the quick-start workflow before launching an electronic-structure calculation.
 
 ## Code map
 
@@ -273,6 +301,12 @@ Periodic wrapping is component-wise in fractional coordinates, including in the 
 | [`src/operate/linear_interpolate.py`](src/operate/linear_interpolate.py) | Fractional-coordinate and lattice interpolation. |
 | [`src/operate/combine_poscar.py`](src/operate/combine_poscar.py) | Combines framework and molecular coordinates and writes numbered directories. |
 | [`utils/reset_lattice.py`](utils/reset_lattice.py) | Applies the final coordinate translation to `interp_result/` only. |
+
+## Contact
+
+Xuan-Yan Chen: [xchen565@connect.hkust-gz.edu.cn](mailto:xchen565@connect.hkust-gz.edu.cn).
+
+Report reproducible problems through [GitHub Issues](https://github.com/ShaneLogic/nebmake-mol/issues), including the command, dependency versions, and a shareable minimal endpoint pair.
 
 ## License
 
